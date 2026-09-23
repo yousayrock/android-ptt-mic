@@ -12,9 +12,11 @@ import io.github.teamclouday.androidMic.domain.service.AudioPacket
 import io.github.teamclouday.androidMic.ProcessingMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
@@ -184,7 +186,7 @@ class MicAudioManager(
         awaitClose {
             streamJob?.cancel()
         }
-    }
+    }.buffer(Channel.RENDEZVOUS)
 
     fun mute() {
         isMuted = true
