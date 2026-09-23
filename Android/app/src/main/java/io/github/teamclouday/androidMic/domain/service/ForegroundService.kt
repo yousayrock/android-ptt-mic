@@ -44,8 +44,6 @@ const val WAIT_PERIOD = 500L
 
 const val BIND_SERVICE_ACTION = "BIND_SERVICE_ACTION"
 const val STOP_STREAM_ACTION = "STOP_STREAM_ACTION"
-const val MUTE_ACTION = "MUTE_ACTION"
-const val UNMUTE_ACTION = "UNMUTE_ACTION"
 const val PTT_PRESS_ACTION = "PTT_PRESS_ACTION"
 const val PTT_RELEASE_ACTION = "PTT_RELEASE_ACTION"
 private const val MEDIA_SESSION_TAG = "AndroidPttMic"
@@ -73,17 +71,6 @@ class ForegroundService : Service() {
                     uiMessenger = msg.replyTo
                 }
 
-                Command.Mute -> {
-                    states.isMuted = true
-                    managerAudio?.mute()
-                    updateNotification()
-                }
-
-                Command.Unmute -> {
-                    states.isMuted = false
-                    managerAudio?.unmute()
-                    updateNotification()
-                }
             }
 
         }
@@ -190,20 +177,6 @@ class ForegroundService : Service() {
                 serviceShouldStop = false
             }
 
-            MUTE_ACTION -> {
-                states.isMuted = true
-                managerAudio?.mute()
-                updateNotification()
-                reply(uiMessenger, ResponseData(isMuted = true))
-            }
-
-            UNMUTE_ACTION -> {
-                states.isMuted = false
-                managerAudio?.unmute()
-                updateNotification()
-                reply(uiMessenger, ResponseData(isMuted = false))
-            }
-
             PTT_PRESS_ACTION -> serviceHandler.post { setPttPressed(true) }
             PTT_RELEASE_ACTION -> serviceHandler.post { setPttPressed(false) }
 
@@ -280,6 +253,7 @@ class ForegroundService : Service() {
             )
         }
         updateNotification()
+        reply(uiMessenger, ResponseData(isMuted = states.isMuted))
     }
 
     private fun vibrateForPttStart() {

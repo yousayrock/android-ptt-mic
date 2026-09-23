@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -29,14 +30,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateInt
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
@@ -123,13 +132,7 @@ fun HomeScreen(
                         text = "Test PTT side button"
                     )
 
-                    if (vm.isStreamStarted.value) {
-                        Spacer(modifier = Modifier.height(15.dp))
-
-                        AudioSwitch(
-                            vm = vm,
-                        )
-                    }
+                    PixelPttIndicator(active = vm.isStreamStarted.value && !vm.isMuted.value)
 
                     Spacer(modifier = Modifier.height(40.dp))
                 }
@@ -169,12 +172,7 @@ fun HomeScreen(
                         )
 
 
-                        if (vm.isStreamStarted.value) {
-                            Spacer(modifier = Modifier.height(15.dp))
-                            AudioSwitch(
-                                vm = vm,
-                            )
-                        }
+                        PixelPttIndicator(active = vm.isStreamStarted.value && !vm.isMuted.value)
                     }
                 }
             }
@@ -212,28 +210,34 @@ private fun Log(
     }
 }
 
+private val PttLime = Color(0xFFC6FF00)
+
 @Composable
-private fun AudioSwitch(
-    vm: MainViewModel,
-) {
+private fun PixelPttIndicator(active: Boolean) {
+    val frame = if (active) {
+        rememberInfiniteTransition(label = "ptt-pixel").animateInt(
+            initialValue = 0,
+            targetValue = 3,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 120, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "ptt-frame"
+        ).value
+    } else 0
 
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-
-        Text(
-            text = stringResource(id = R.string.turn_audio),
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.labelLarge
-        )
-        Spacer(Modifier.width(12.dp))
-        Switch(
-            checked = vm.isMuted.value,
-            onCheckedChange = {
-                vm.onMuteSwitch()
-            }
-        )
+    Canvas(Modifier.padding(14.dp).width(108.dp).height(38.dp)) {
+        val unit = size.minDimension / 10f
+        val centerX = size.width / 2f
+        val centerY = size.height / 2f
+        val pulse = if (active) frame + 1 else 0
+        for (step in 0..pulse) {
+            val alpha = if (active) 1f - step * 0.18f else 0.35f
+            val halfWidth = unit * (if (step == 0) 1f else 0.45f)
+            val offset = step * unit * 1.7f
+            drawRect(PttLime.copy(alpha = alpha), Offset(centerX - offset - halfWidth, centerY - halfWidth), Size(halfWidth * 2, halfWidth * 2))
+            drawRect(PttLime.copy(alpha = alpha), Offset(centerX + offset - halfWidth, centerY - halfWidth), Size(halfWidth * 2, halfWidth * 2))
+        }
     }
 }
 

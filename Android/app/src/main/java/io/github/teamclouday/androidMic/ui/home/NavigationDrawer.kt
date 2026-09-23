@@ -35,13 +35,9 @@ import androidx.lifecycle.viewModelScope
 import io.github.teamclouday.androidMic.Mode
 import io.github.teamclouday.androidMic.R
 import io.github.teamclouday.androidMic.ui.MainViewModel
-import io.github.teamclouday.androidMic.ui.home.dialog.DialogAudioFormat
-import io.github.teamclouday.androidMic.ui.home.dialog.DialogAudioSource
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogProcessingMode
-import io.github.teamclouday.androidMic.ui.home.dialog.DialogChannelCount
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogIpPort
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogMode
-import io.github.teamclouday.androidMic.ui.home.dialog.DialogSampleRate
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogTheme
 import kotlinx.coroutines.launch
 
@@ -106,48 +102,10 @@ fun DrawerBody(vm: MainViewModel) {
         // Audio
         SettingsItemsSubtitle(R.string.drawer_subtitle_audio)
 
-        val dialogSampleRateExpanded = rememberSaveable {
-            mutableStateOf(false)
-        }
-        DialogSampleRate(vm = vm, expanded = dialogSampleRateExpanded)
         SettingsItem(
-            title = stringResource(id = R.string.sample_rate),
-            subTitle = vm.prefs.sampleRate.getAsState().value.value.toString(),
-            contentDescription = "set sample rate",
-            onClick = { dialogSampleRateExpanded.value = true },
-        )
-
-        val dialogChannelCountExpanded = rememberSaveable {
-            mutableStateOf(false)
-        }
-        DialogChannelCount(vm = vm, expanded = dialogChannelCountExpanded)
-        SettingsItem(
-            title = stringResource(id = R.string.channel_count),
-            subTitle = vm.prefs.channelCount.getAsState().value.getString(),
-            contentDescription = "set channel count",
-            onClick = { dialogChannelCountExpanded.value = true },
-        )
-
-        val dialogAudioFormatExpanded = rememberSaveable {
-            mutableStateOf(false)
-        }
-        DialogAudioFormat(vm = vm, expanded = dialogAudioFormatExpanded)
-        SettingsItem(
-            title = stringResource(id = R.string.audio_format),
-            subTitle = vm.prefs.audioFormat.getAsState().value.toString(),
-            contentDescription = "set audio format",
-            onClick = { dialogAudioFormatExpanded.value = true },
-        )
-
-        val dialogAudioSourceExpanded = rememberSaveable {
-            mutableStateOf(false)
-        }
-        DialogAudioSource(vm = vm, expanded = dialogAudioSourceExpanded)
-        SettingsItem(
-            title = stringResource(id = R.string.audio_source),
-            subTitle = vm.prefs.audioSource.getAsState().value.toString(),
-            contentDescription = "set audio source",
-            onClick = { dialogAudioSourceExpanded.value = true },
+            title = stringResource(id = R.string.ptt_audio_profile),
+            subTitle = stringResource(id = R.string.ptt_audio_profile_detail),
+            contentDescription = "fixed V1 PTT audio format",
         )
 
         val dialogProcessingModeExpanded = rememberSaveable { mutableStateOf(false) }
@@ -221,14 +179,12 @@ private fun SettingsItem(
     subTitle: String,
     contentDescription: String,
     icon: ImageVector? = null,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(
-                onClick = onClick
-            )
+            .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

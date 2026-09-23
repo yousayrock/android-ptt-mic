@@ -12,7 +12,7 @@ fun DialogMode(
 ) {
     DialogList(
         expanded,
-        enum = Mode.entries,
+        enum = listOf(Mode.USB, Mode.WIFI),
         onClick = { vm.setMode(it) },
         text = { it.toString() }
     )

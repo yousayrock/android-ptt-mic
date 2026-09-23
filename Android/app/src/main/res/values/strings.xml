@@ -26,10 +26,8 @@
     <string name="dialog_port">PORT</string>
 
 
-    <string name="sample_rate">Sample Rate</string>
-    <string name="channel_count">Channel Count</string>
-    <string name="audio_format">Audio Format</string>
-    <string name="audio_source">Audio Source</string>
+    <string name="ptt_audio_profile">PTT audio format (fixed)</string>
+    <string name="ptt_audio_profile_detail">48 kHz · Mono · PCM 16-bit</string>
     <string name="processing_mode">Noise processing</string>
 
     <string name="drawerTheme">Themes</string>

@@ -14,6 +14,7 @@ Project documentation:
 - [XS17 device profile](docs/DEVICE_PROFILE.md)
 - [Car noise reduction test plan](docs/CAR_NOISE_REDUCTION.md)
 - [Roadmap](docs/ROADMAP.md)
+- [V1 UI concept](docs/UI_MOCKUP.md)
 
 <!-- <a href="https://flathub.org/apps/io.github.teamclouday.AndroidMic"><img align=center height="40" src="https://flathub.org/assets/badges/flathub-badge-en.svg"  alt="Download on Flathub"/></a> -->
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/teamclouday/AndroidMic.svg?logo=github&label=GitHub&cacheSeconds=3600)](https://github.com/teamclouday/AndroidMic/releases/latest)
@@ -28,6 +29,9 @@ Project documentation:
 </p>
 
 ## Features
+
+> V1 scope is intentionally smaller than upstream: push-to-talk, USB/Wi-Fi transport,
+> and a fixed 48 kHz / PCM16 / mono stream. See the project docs for verified status.
 
 - **Cross-platform**: Works on Linux, Windows, and macOS
 - **Multiple connection options**: WiFi (TCP/UDP), USB Serial, and USB ADB

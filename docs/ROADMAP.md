@@ -17,7 +17,7 @@
 
 - [x] Reuse AndroidMic Foreground Service microphone capture; add PTT lifecycle integration.
 - [x] Implement hard PTT gate, short press vibration, and immediate release mute.
-- [x] Set fresh installs to 48 kHz / 16-bit / mono and USB preference.
+- [x] Fix the V1 stream contract to 48 kHz / 16-bit / mono and default to USB.
 - [x] Add USB detach/attach detection and handshake retry.
 - [x] Add OFF / STANDARD / CAR processing modes.
 

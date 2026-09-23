@@ -33,7 +33,7 @@ The diagnostic screen records foreground `dispatchKeyEvent` events and saves the
 - AccessibilityService capture of volume up during streaming: implemented and enabled on XS17, but behavior during an active stream and with display off remains unvalidated.
 - Start muted, stream zeroed PCM while muted, unmute and short vibration on press, remute on release: implemented; physical button/app path and audio gate still need end-to-end validation.
 - Foreground capture and AndroidMic USB Accessory transport: inherited from upstream.
-- USB reconnect logic: implemented but not validated with a running PC USB Accessory receiver. Boot auto-start and hard enforcement of 48 kHz/i16/mono remain pending. Screen-off side-key behavior requires enabling the accessibility service and testing on-device.
+- USB reconnect logic: implemented but not validated with a running PC USB Accessory receiver. The V1 48 kHz/i16/mono format is fixed in the start-stream command and shown read-only in settings; PC receiver compatibility still needs end-to-end validation. Boot auto-start remains pending. Screen-off side-key behavior requires active-stream testing on-device.
 
 ## Safety and latency
 

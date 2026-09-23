@@ -40,11 +40,6 @@ class MessageUi(private val ctx: ForegroundService) {
                 .setAction(STOP_STREAM_ACTION), PendingIntent.FLAG_IMMUTABLE
         )
 
-        val pMuteIntent = PendingIntent.getService(
-            ctx, 0, Intent(ctx, ForegroundService::class.java)
-                .setAction(if (isMuted) UNMUTE_ACTION else MUTE_ACTION ), PendingIntent.FLAG_IMMUTABLE
-        )
-
         val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(ctx.getString(R.string.app_name))
@@ -57,13 +52,6 @@ class MessageUi(private val ctx: ForegroundService) {
                     R.drawable.ic_launcher_foreground,
                     ctx.getString(R.string.stop_streaming),
                     pStopStreamingIntent
-                )
-            )
-            .addAction(
-                NotificationCompat.Action(
-                    R.drawable.ic_launcher_foreground,
-                    ctx.getString(if (isMuted) R.string.unmute else R.string.mute),
-                    pMuteIntent
                 )
             )
 

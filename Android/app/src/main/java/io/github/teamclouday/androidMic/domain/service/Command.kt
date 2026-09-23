@@ -44,8 +44,6 @@ enum class Command {
     // called when the ui is bind
     BindCheck,
 
-    Mute,
-    Unmute,
 }
 
 
@@ -85,10 +83,12 @@ data class CommandData(
 
             val data = CommandData(
                 command = command,
-                sampleRate = prefs.sampleRate.get(),
-                channelCount = prefs.channelCount.get(),
-                audioFormat = prefs.audioFormat.get(),
-                audioSource = prefs.audioSource.get().getSource(),
+                // V1's PC receiver contract is fixed; don't let stale or legacy
+                // preferences silently change the wire format.
+                sampleRate = SampleRates.S48000,
+                channelCount = ChannelCount.Mono,
+                audioFormat = AudioFormat.I16,
+                audioSource = android.media.MediaRecorder.AudioSource.MIC,
                 mode = mode
             )
 

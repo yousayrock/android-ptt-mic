@@ -12,14 +12,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.teamclouday.androidMic.AndroidMicApp
 import io.github.teamclouday.androidMic.AppPreferences
-import io.github.teamclouday.androidMic.AudioFormat
-import io.github.teamclouday.androidMic.AudioSource
-import io.github.teamclouday.androidMic.ChannelCount
 import io.github.teamclouday.androidMic.Dialogs
 import io.github.teamclouday.androidMic.Mode
 import io.github.teamclouday.androidMic.ProcessingMode
 import io.github.teamclouday.androidMic.R
-import io.github.teamclouday.androidMic.SampleRates
 import io.github.teamclouday.androidMic.Themes
 import io.github.teamclouday.androidMic.domain.service.Command
 import io.github.teamclouday.androidMic.domain.service.CommandData
@@ -101,21 +97,6 @@ class MainViewModel : ViewModel() {
         service?.send(msg)
     }
 
-    fun onMuteSwitch() {
-        if (!isBound) return
-
-        val message = if (isMuted.value) {
-            isMuted.value = false
-            CommandData(Command.Unmute)
-        } else {
-            isMuted.value = true
-            CommandData(Command.Mute)
-        }.toCommandMsg()
-
-        message.replyTo = messenger
-        service?.send(message)
-    }
-
     fun onConnectButton(): Dialogs? {
         if (!isBound) return null
         isMuted.value = false
@@ -163,30 +144,6 @@ class MainViewModel : ViewModel() {
     fun setMode(mode: Mode) {
         viewModelScope.launch {
             prefs.mode.update(mode)
-        }
-    }
-
-    fun setSampleRate(sampleRate: SampleRates) {
-        viewModelScope.launch {
-            prefs.sampleRate.update(sampleRate)
-        }
-    }
-
-    fun setChannelCount(channelCount: ChannelCount) {
-        viewModelScope.launch {
-            prefs.channelCount.update(channelCount)
-        }
-    }
-
-    fun setAudioFormat(audioFormat: AudioFormat) {
-        viewModelScope.launch {
-            prefs.audioFormat.update(audioFormat)
-        }
-    }
-
-    fun setAudioSource(audioSource: AudioSource) {
-        viewModelScope.launch {
-            prefs.audioSource.update(audioSource)
         }
     }
 
