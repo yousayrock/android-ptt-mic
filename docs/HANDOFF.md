@@ -2,47 +2,37 @@
 
 ## Goal
 
-Build `yousayrock/android-ptt-mic`, a small GPL-3.0 AndroidMic-based PTT microphone app. XS17 (also referred to as X19 Pro) sends its microphone to a PC; holding the phone's volume-up side key transmits, releasing it immediately mutes. USB is preferred, Wi-Fi/TCP is also requested. Prioritize low latency for in-car use.
+Use the XS17 phone's volume-up side key as push-to-talk, sending phone microphone audio to a Windows PC for OBS and ChatGPT voice input. OBS broadcasting is managed by the user; do not start a stream as part of setup.
 
-## Confirmed so far
+## Verified device and PC setup
 
-- Repository: `https://github.com/yousayrock/android-ptt-mic`, branch `main`.
-- Existing commits include initial design, PTT implementation, power-key limitation, and device probe results (`a059bac`, `dc8c564`, `31ca3da`, `c82c58d`).
-- XS17 physical volume-up was observed in the foreground key probe as `KEYCODE_VOLUME_UP` (24), scan code 115, down/up. Accidental volume-down was `KEYCODE_VOLUME_DOWN` (25), scan code 114. Power key is intercepted by Android; use volume-up for V1.
-- Screen-off PTT while an active stream is not yet verified. USB accessory handshake and audio delivery are not verified.
-- PC-side Codex reported AndroidMic 2.2.9 x64 receiver GUI running, VB-CABLE active, output set to CABLE Input, and TCP port 54345 listening. Audio handshake, actual format negotiation, microphone delivery, and release-to-mute are still unverified. The PC had saved 48 kHz / i16 / Stereo; do not claim mono conversion is verified.
-- Coordinate with the PC-side task in [GitHub Issue #1](https://github.com/yousayrock/android-ptt-mic/issues/1). Latest phone-side coordination comment: `5799272537`.
-- User says the phone is currently waiting and is not USB-connected. Use wireless debugging/ADB, then test Wi-Fi/TCP first while PC receiver is listening.
-- Wireless ADB mDNS discovery returned an `_adb-tls-connect._tcp` service, but `adb connect` from this Codex environment failed with Windows socket error 10013, including an escalated attempt. ADB device list was empty. Pair/connect from a normal Windows PowerShell outside Codex if needed; use `adb mdns services`, `adb pair <ip>:<pairing-port>` only if unpaired, then `adb connect <ip>:<connect-port>`. Pairing and connect ports differ. Never post pairing codes publicly.
+- Phone: XS17, Android reports model A25. AndroidMic 2.2.9 debug is installed.
+- Transport: Wi-Fi/TCP on the same trusted LAN. AndroidMic on the PC listens on port `54345`; at the last check the phone had an established TCP connection to the PC and the Android screen reported `Microphone has started to record` and `Streaming Mode: WIFI`.
+- Audio format: 48 kHz, signed PCM16 (`i16`), mono.
+- PC playback endpoint: `CABLE Input (VB-Audio Virtual Cable)`.
+- Applications should select `CABLE Output (VB-Audio Virtual Cable)` as their microphone input.
+- The OBS scene collection has an input capture source configured for CABLE Output. The user confirmed that PTT audio reaches OBS. The exact live scene should be checked in OBS if switching collections or profiles.
+- The user enabled Android's `PTT side button input` accessibility service and confirmed the volume UI no longer appears when using the side key. The service only filters volume-up while a stream is active; when disconnected, volume behavior remains normal.
+- The user manages YouTube/OBS broadcasting. No stream was started during this setup.
 
-## Current uncommitted work
+## Reconnect procedure
 
-The worktree has edits to simplify V1 and a new visual reference. Inspect `git status` and `git diff` before continuing. Current intended changes:
+1. Connect the phone and PC to the same trusted Wi-Fi network.
+2. Start AndroidMic on the PC in TCP/Wi-Fi mode. Select `CABLE Input` as its output device and listen on the PC's current Wi-Fi IPv4 address, port `54345`.
+3. On Android, select Wi-Fi mode and enter that PC IPv4 address and port. Tap Connect and confirm the screen reports Wi-Fi streaming and microphone recording.
+4. Keep `PTT side button input` enabled in Android Accessibility settings. Press and hold the phone's volume-up side key while speaking; releasing the key should close the PTT gate.
+5. In OBS and ChatGPT, select `CABLE Output` as the microphone. Verify OBS's audio meter before the user starts their own broadcast.
 
-- Lock the stream to 48 kHz / signed PCM16 / mono and microphone source.
-- Remove inherited sample-rate, channel, sample-format, and audio-source settings.
-- Keep only USB and Wi-Fi transport choices; retain OFF / STANDARD / CAR processing modes.
-- Remove manual mute/unmute controls so only the held PTT key opens the mic.
-- Add a small Compose pixel-pulse indicator active only while transmitting.
-- Add mockup assets `docs/assets/ptt-home-mockup.png` and `docs/assets/ptt-pixel-pulse-4frame.png`, documented in `docs/UI_MOCKUP.md`.
-- Simplify strings and update `docs/PTT_SPEC.md`, `docs/ROADMAP.md`, and README.
+TCP transport is unauthenticated and unencrypted. Keep it on a trusted LAN; do not expose the receiver port through router port forwarding.
 
-The above has **not been built or committed yet**. A build using the Gradle 9.1 cache failed with `Unable to establish loopback connection`. The wrapper requests Gradle 9.6.1 and cannot download it under the current network restrictions. Resolve Gradle/network access, then build before installing/testing.
+## Remaining verification
 
-`Android/work/jtmp` is a scratch temp directory created during the failed build; do not commit it.
+- The user has confirmed audio reaches OBS. Re-test press/release muting after reconnects and when the phone screen is off.
+- Select CABLE Output in ChatGPT's microphone input and verify an actual voice conversation; this selection was not confirmed during setup.
+- USB accessory transport was not used: the phone app reported no USB accessory. Wi-Fi/TCP is the working path.
 
-## Immediate next steps
+## Repository state
 
-1. Review the current diff, compile issues, and `git status`; keep scratch files out of Git.
-2. Remove any accidental/manual unmute path completely; ensure PTT press/release updates UI state and notification safely.
-3. Build debug APK, install over wireless ADB, and verify app opens.
-4. Ask user to select Wi-Fi/TCP and connect while PC receiver listens on 54345; coordinate start timing in Issue #1. Verify connection, PC audio, volume-up press audio, release silence, then screen-off behavior.
-5. Test USB accessory after Wi-Fi path if device/cable becomes available.
-6. Commit and push the V1 simplification only after build checks pass. Keep GUI/transport/audio claims limited to observed evidence.
-
-## Design scope
-
-V1 should stay small: connection, PTT key test, OFF / STANDARD / CAR processing mode, fixed audio format, and clear transmitting status. Avoid restoring upstream advanced audio configuration. Car-noise research should compare processing benefit against added latency and degradation; AEC/RNNoise are investigation items, not required V1 dependencies.
-
-The requested “loop skill” was not available in this Codex environment; GitHub Issue #1 is being used to coordinate with the PC-side Codex.
-
+- This repository is `yousayrock/android-ptt-mic`, branch `main`.
+- The V1 audio profile and PTT controls are already present in the current main commit. This handoff records the operational PC/phone setup and verification status; local Windows/OBS configuration files are outside the repository.
+- XS17 reports the intended side key as `KEYCODE_VOLUME_UP` (24), scan code 115. The power key is intercepted by Android; volume-up is the supported V1 PTT key.
