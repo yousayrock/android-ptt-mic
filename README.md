@@ -1,9 +1,18 @@
 <p align="center">
   <img align="center" src="./Assets/app_icon.svg" alt="app icon" width="80px" />
-  <h1 align="center" style="display: inline-block; margin-left: 12px; vertical-align: middle;">AndroidMic</h1>
+<h1 align="center" style="display: inline-block; margin-left: 12px; vertical-align: middle;">Android PTT Mic</h1>
 </p>
 
-<h3 align="center">Use your Android phone as a microphone for your PC</h3>
+<h3 align="center">Use an X19 Pro as a low-latency PTT USB microphone</h3>
+
+This project is a GPL-3.0 fork of [teamclouday/AndroidMic](https://github.com/teamclouday/AndroidMic), adapted for the X19 Pro side button and vehicle use. The project starts with design and measurement work before the V1 implementation.
+
+Project documentation:
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [PTT specification](docs/PTT_SPEC.md)
+- [Car noise reduction test plan](docs/CAR_NOISE_REDUCTION.md)
+- [Roadmap](docs/ROADMAP.md)
 
 <!-- <a href="https://flathub.org/apps/io.github.teamclouday.AndroidMic"><img align=center height="40" src="https://flathub.org/assets/badges/flathub-badge-en.svg"  alt="Download on Flathub"/></a> -->
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/teamclouday/AndroidMic.svg?logo=github&label=GitHub&cacheSeconds=3600)](https://github.com/teamclouday/AndroidMic/releases/latest)
