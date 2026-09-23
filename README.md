@@ -5,12 +5,13 @@
 
 <h3 align="center">Use an X19 Pro as a low-latency PTT USB microphone</h3>
 
-This project is a GPL-3.0 fork of [teamclouday/AndroidMic](https://github.com/teamclouday/AndroidMic), adapted for the X19 Pro side button and vehicle use. The project starts with design and measurement work before the V1 implementation.
+This project is a GPL-3.0 fork of [teamclouday/AndroidMic](https://github.com/teamclouday/AndroidMic), adapted for the XS17/X19 Pro side button and vehicle use. It adds an initial PTT implementation and key-event probe; end-to-end USB receiver and in-vehicle validation remain in progress.
 
 Project documentation:
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [PTT specification](docs/PTT_SPEC.md)
+- [XS17 device profile](docs/DEVICE_PROFILE.md)
 - [Car noise reduction test plan](docs/CAR_NOISE_REDUCTION.md)
 - [Roadmap](docs/ROADMAP.md)
 

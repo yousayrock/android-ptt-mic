@@ -1,5 +1,6 @@
 package io.github.teamclouday.androidMic.ui.home
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -61,6 +63,7 @@ fun HomeScreen(
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     BackHandler(enabled = drawerState.isOpen) {
         scope.launch { drawerState.close() }
@@ -115,6 +118,11 @@ fun HomeScreen(
                         openAppSettings = openAppSettings
                     )
 
+                    ManagerButton(
+                        onClick = { context.startActivity(Intent(context, io.github.teamclouday.androidMic.ui.KeyEventProbeActivity::class.java)) },
+                        text = "Test PTT side button"
+                    )
+
                     if (vm.isStreamStarted.value) {
                         Spacer(modifier = Modifier.height(15.dp))
 
@@ -153,6 +161,11 @@ fun HomeScreen(
                             vm = vm,
                             modifier = Modifier,
                             openAppSettings = openAppSettings
+                        )
+
+                        ManagerButton(
+                            onClick = { context.startActivity(Intent(context, io.github.teamclouday.androidMic.ui.KeyEventProbeActivity::class.java)) },
+                            text = "Test PTT side button"
                         )
 
 

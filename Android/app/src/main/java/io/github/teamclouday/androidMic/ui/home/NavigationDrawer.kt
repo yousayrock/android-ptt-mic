@@ -37,6 +37,7 @@ import io.github.teamclouday.androidMic.R
 import io.github.teamclouday.androidMic.ui.MainViewModel
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogAudioFormat
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogAudioSource
+import io.github.teamclouday.androidMic.ui.home.dialog.DialogProcessingMode
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogChannelCount
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogIpPort
 import io.github.teamclouday.androidMic.ui.home.dialog.DialogMode
@@ -147,6 +148,15 @@ fun DrawerBody(vm: MainViewModel) {
             subTitle = vm.prefs.audioSource.getAsState().value.toString(),
             contentDescription = "set audio source",
             onClick = { dialogAudioSourceExpanded.value = true },
+        )
+
+        val dialogProcessingModeExpanded = rememberSaveable { mutableStateOf(false) }
+        DialogProcessingMode(vm = vm, expanded = dialogProcessingModeExpanded)
+        SettingsItem(
+            title = stringResource(id = R.string.processing_mode),
+            subTitle = vm.prefs.processingMode.getAsState().value.name,
+            contentDescription = "set audio processing mode",
+            onClick = { dialogProcessingModeExpanded.value = true },
         )
 
         // Other

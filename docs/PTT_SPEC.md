@@ -20,7 +20,18 @@ The first implementation milestone is a diagnostic screen and persistent log con
 - behavior with screen on, screen locked, and screen off;
 - behavior when the app is foreground, background, and the service is active.
 
-The diagnostic must identify whether the side button is delivered as a normal `KeyEvent`, a vendor broadcast, or only through an accessibility/input device API. No key code is hard-coded until this test is completed on the X19 Pro.
+On XS17, `adb shell getevent -lt` recorded the tested side button as `/dev/input/event0` (`mtk-kpd`), `KEY_VOLUMEUP` down/up. Android therefore maps the intended button to volume up, not a media key. The app uses an explicitly user-enabled AccessibilityService key filter to turn only volume-up into PTT while a stream is active. When no stream is active, it passes the key through as normal volume control.
+
+The diagnostic screen records foreground `dispatchKeyEvent` events and saves them to the app's private `key-event-probe.log`. A MediaSession remains available for devices whose PTT input is routed as a media key. Screen-off volume-key capture uses the accessibility key filter and requires the user to enable the named service in Android settings. Only the kernel event has been observed on XS17 so far; Android KeyEvent delivery and screen-off behavior still need APK installation and validation.
+
+## Implementation status
+
+- Probe Activity and persistent event log: implemented, built, and installed on XS17.
+- XS17 kernel input mapping: observed as `mtk-kpd / KEY_VOLUMEUP` down/up.
+- AccessibilityService capture of volume up during streaming: implemented, requires explicit user enablement and hardware validation.
+- Start muted, stream zeroed PCM while muted, unmute and short vibration on press, remute on release: implemented; physical button/app path and audio gate still need end-to-end validation.
+- Foreground capture and AndroidMic USB Accessory transport: inherited from upstream.
+- USB reconnect logic: implemented but not validated with a running PC USB Accessory receiver. Boot auto-start and hard enforcement of 48 kHz/i16/mono remain pending. Screen-off side-key behavior requires enabling the accessibility service and testing on-device.
 
 ## Safety and latency
 

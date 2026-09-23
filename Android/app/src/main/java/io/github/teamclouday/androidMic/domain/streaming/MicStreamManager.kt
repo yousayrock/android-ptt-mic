@@ -13,7 +13,8 @@ class MicStreamManager(
     scope: CoroutineScope,
     val mode: Mode,
     ip: String?,
-    port: Int?
+    port: Int?,
+    onConnectionChanged: (Boolean) -> Unit = {}
 ) {
 
     private var streamer: Streamer = when (mode) {
@@ -26,7 +27,7 @@ class MicStreamManager(
         }
 
         Mode.USB -> {
-            UsbStreamer(ctx, scope)
+            UsbStreamer(ctx, scope, onConnectionChanged)
         }
 
         Mode.UDP -> {

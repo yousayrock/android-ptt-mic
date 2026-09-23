@@ -5,9 +5,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.audiofx.NoiseSuppressor
 import android.util.Log
 import androidx.core.content.ContextCompat
 import io.github.teamclouday.androidMic.domain.service.AudioPacket
+import io.github.teamclouday.androidMic.ProcessingMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
@@ -29,6 +31,7 @@ class MicAudioManager(
     val audioFormat: Int,
     val channelCount: Int,
     val audioSource: Int,
+    private val processingMode: ProcessingMode,
 ) {
 
     companion object {
@@ -36,12 +39,24 @@ class MicAudioManager(
     }
 
     private val recorder: AudioRecord
-    private val bufferSize: Int
+    private val recorderBufferSize: Int
+    private val frameSamples: Int
     private val buffer: ByteArray
     private val bufferFloat: FloatArray
     private val bufferFloatConvert: ByteBuffer
+    private var noiseSuppressor: NoiseSuppressor? = null
+    private val filterInput = FloatArray(channelCount)
+    private val filterOutput = FloatArray(channelCount)
+    private val compressorEnvelope = FloatArray(channelCount)
+    private val compressorGain = FloatArray(channelCount) { 1f }
+    private val hpfAlpha = run {
+        val cutoffHz = if (processingMode == ProcessingMode.CAR) 130f else 80f
+        val rc = 1f / (2f * Math.PI.toFloat() * cutoffHz)
+        rc / (rc + 1f / sampleRate)
+    }
     private var streamJob: Job? = null
 
+    @Volatile
     private var isMuted = false
 
     init {
@@ -61,15 +76,27 @@ class MicAudioManager(
         // get minimum buffer size
         val channelConfig =
             if (channelCount == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
-        bufferSize = AudioRecord.getMinBufferSize(
+        val minBufferSize = AudioRecord.getMinBufferSize(
             sampleRate,
             channelConfig,
             audioFormat,
         )
 
-        require(bufferSize != AudioRecord.ERROR && bufferSize != AudioRecord.ERROR_BAD_VALUE) {
-            "Microphone buffer size ($bufferSize) is invalid\nAudio format is likely not supported"
+        require(minBufferSize != AudioRecord.ERROR && minBufferSize != AudioRecord.ERROR_BAD_VALUE) {
+            "Microphone buffer size ($minBufferSize) is invalid\nAudio format is likely not supported"
         }
+
+        // Read and gate short 10 ms frames so a PTT release does not wait for a
+        // large device minimum buffer to drain before silence reaches the transport.
+        frameSamples = sampleRate / 100 * channelCount
+        val bytesPerSample = when (audioFormat) {
+            AudioFormat.ENCODING_PCM_8BIT -> 1
+            AudioFormat.ENCODING_PCM_16BIT -> 2
+            AudioFormat.ENCODING_PCM_24BIT_PACKED -> 3
+            else -> 4
+        }
+        val frameBytes = frameSamples * bytesPerSample
+        recorderBufferSize = maxOf(minBufferSize, frameBytes * 2)
 
         // init recorder
         recorder = AudioRecord(
@@ -77,7 +104,7 @@ class MicAudioManager(
             sampleRate,
             channelConfig,
             audioFormat,
-            bufferSize,
+            recorderBufferSize,
         )
 
         // check if recorder is initialized
@@ -85,9 +112,15 @@ class MicAudioManager(
             "Microphone recording failed to initialize"
         }
 
-        buffer = ByteArray(bufferSize)
-        bufferFloat = FloatArray(bufferSize / 4) // float is 4 bytes
-        bufferFloatConvert = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder())
+        if (processingMode != ProcessingMode.OFF && NoiseSuppressor.isAvailable()) {
+            noiseSuppressor = runCatching {
+                NoiseSuppressor.create(recorder.audioSessionId)?.apply { enabled = true }
+            }.onFailure { Log.w(TAG, "Android NoiseSuppressor could not be enabled", it) }.getOrNull()
+        }
+
+        buffer = ByteArray(frameBytes)
+        bufferFloat = FloatArray(frameSamples)
+        bufferFloatConvert = ByteBuffer.allocate(frameSamples * Float.SIZE_BYTES).order(ByteOrder.nativeOrder())
     }
 
     // audio stream publisher
@@ -95,11 +128,6 @@ class MicAudioManager(
         // launch in scope so infinite loop will be canceled when scope exits
         streamJob = scope.launch {
             while (true) {
-
-                if (isMuted) {
-                    delay(RECORD_DELAY_MS)
-                    continue
-                }
 
                 if (recorder.state != AudioRecord.STATE_INITIALIZED || recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
                     delay(RECORD_DELAY_MS)
@@ -111,12 +139,12 @@ class MicAudioManager(
 
                 if (audioFormat == AudioFormat.ENCODING_PCM_FLOAT) {
                     readCount =
-                        recorder.read(bufferFloat, 0, bufferFloat.size, AudioRecord.READ_BLOCKING)
+                        recorder.read(bufferFloat, 0, frameSamples, AudioRecord.READ_BLOCKING)
 
                     if (readCount > 0) {
                         bufferFloatConvert.clear()
                         bufferFloatConvert.asFloatBuffer().put(bufferFloat, 0, readCount)
-                        packetBuffer = bufferFloatConvert.array()
+                        packetBuffer = bufferFloatConvert.array().copyOf(readCount * Float.SIZE_BYTES)
                     } else {
                         packetBuffer = ByteArray(0)
                     }
@@ -135,6 +163,12 @@ class MicAudioManager(
                     delay(RECORD_DELAY_MS)
                     continue
                 }
+
+                // Keep the transport clock running while muted so no captured packet remains buffered.
+                if (!isMuted && audioFormat == AudioFormat.ENCODING_PCM_16BIT && processingMode != ProcessingMode.OFF) {
+                    processPcm16(packetBuffer)
+                }
+                if (isMuted) packetBuffer.fill(0)
 
                 send(
                     AudioPacket(
@@ -160,6 +194,42 @@ class MicAudioManager(
         isMuted = false
     }
 
+    private fun processPcm16(pcm: ByteArray) {
+        val sampleCount = pcm.size / Short.SIZE_BYTES
+        val attack = kotlin.math.exp(-1f / (sampleRate * 0.010f))
+        val release = kotlin.math.exp(-1f / (sampleRate * 0.100f))
+        for (sampleIndex in 0 until sampleCount) {
+            val channel = sampleIndex % channelCount
+            val byteIndex = sampleIndex * Short.SIZE_BYTES
+            val input = (((pcm[byteIndex + 1].toInt() shl 8) or (pcm[byteIndex].toInt() and 0xff)).toShort()).toFloat()
+            var output = input
+
+            if (processingMode == ProcessingMode.STANDARD || processingMode == ProcessingMode.CAR) {
+                val highPassed = hpfAlpha * (filterOutput[channel] + input - filterInput[channel])
+                filterInput[channel] = input
+                filterOutput[channel] = highPassed
+                output = highPassed
+            }
+
+            if (processingMode == ProcessingMode.CAR) {
+                val level = kotlin.math.abs(output) / Short.MAX_VALUE.toFloat()
+                val coefficient = if (level > compressorEnvelope[channel]) attack else release
+                compressorEnvelope[channel] = coefficient * compressorEnvelope[channel] + (1f - coefficient) * level
+                val threshold = 0.72f
+                val targetGain = if (compressorEnvelope[channel] > threshold) {
+                    (threshold + (compressorEnvelope[channel] - threshold) / 3f) / compressorEnvelope[channel]
+                } else 1f
+                val gainCoefficient = if (targetGain < compressorGain[channel]) attack else release
+                compressorGain[channel] = gainCoefficient * compressorGain[channel] + (1f - gainCoefficient) * targetGain
+                output *= compressorGain[channel]
+            }
+
+            val clipped = output.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort().toInt()
+            pcm[byteIndex] = clipped.toByte()
+            pcm[byteIndex + 1] = (clipped shr 8).toByte()
+        }
+    }
+
     // start recording
     fun start() {
         recorder.startRecording()
@@ -177,6 +247,8 @@ class MicAudioManager(
     fun shutdown() {
         recorder.stop()
         recorder.release()
+        noiseSuppressor?.release()
+        noiseSuppressor = null
         streamJob?.cancel()
         Log.d(TAG, "shutdown")
     }

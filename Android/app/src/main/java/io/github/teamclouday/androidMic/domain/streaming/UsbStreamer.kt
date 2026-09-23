@@ -31,7 +31,11 @@ import java.io.FileOutputStream
 
 private const val TAG: String = "USB streamer"
 
-class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
+class UsbStreamer(
+    ctx: Context,
+    private val scope: CoroutineScope,
+    private val onConnectionChanged: (Boolean) -> Unit = {}
+) : Streamer {
 
     companion object {
         private const val USB_PERMISSION = "io.github.teamclouday.AndroidMic.USB_PERMISSION"
@@ -45,6 +49,9 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
     private var outputStream: FileOutputStream? = null
     private var inputStream: FileInputStream? = null
     private var sequenceIdx = 0
+    @Volatile private var connected = false
+    private var reconnectJob: Job? = null
+    private val appContext = ctx.applicationContext
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -60,14 +67,32 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
                 )
 
                 if (acc == accessory) {
-                    shutdown()
+                    connected = false
+                    closeAccessory()
+                    accessory = null
+                    onConnectionChanged(false)
+                }
+            } else if (action == UsbManager.ACTION_USB_ACCESSORY_ATTACHED) {
+                val acc = BundleCompat.getParcelable(intent.extras!!, UsbManager.EXTRA_ACCESSORY, UsbAccessory::class.java)
+                    ?: return
+                accessory = acc
+                val usbManager = appContext.getSystemService(Context.USB_SERVICE) as UsbManager
+                if (usbManager.hasPermission(acc)) {
+                    openAccessory(usbManager)
+                    retryHandshake()
+                } else {
+                    usbManager.requestPermission(
+                        acc,
+                        PendingIntent.getBroadcast(appContext, 0, Intent(USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE)
+                    )
                 }
             } else if (action == USB_PERMISSION) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 if (granted) {
                     Log.d(TAG, "permission granted")
-                    val usbManager = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
+                    val usbManager = appContext.getSystemService(Context.USB_SERVICE) as UsbManager
                     openAccessory(usbManager)
+                    retryHandshake()
                 } else {
                     Log.d(TAG, "permission denied")
                 }
@@ -82,12 +107,14 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
             val filter = IntentFilter(
                 UsbManager.ACTION_USB_ACCESSORY_DETACHED
             )
+            filter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
             filter.addAction(USB_PERMISSION)
             ctx.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             val filter = IntentFilter(
                 UsbManager.ACTION_USB_ACCESSORY_DETACHED
             )
+            filter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
             ctx.registerReceiver(receiver, filter)
         }
 
@@ -200,11 +227,35 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
             }
 
             Log.d(TAG, "connect: handshake ${if (success) "successful" else "failed"}")
+            connected = success
+            onConnectionChanged(success)
             success
         } catch (e: Exception) {
             Log.e(TAG, "connect: ${e.message}", e)
             false
         }
+    }
+
+    private fun retryHandshake() {
+        reconnectJob?.cancel()
+        reconnectJob = scope.launch {
+            var backoffMs = 500L
+            while (outputStream != null && !connected) {
+                if (connect()) return@launch
+                kotlinx.coroutines.delay(backoffMs)
+                backoffMs = (backoffMs * 2).coerceAtMost(8000L)
+            }
+        }
+    }
+
+    private fun closeAccessory() {
+        runCatching { inputStream?.close() }
+        runCatching { outputStream?.close() }
+        runCatching { accessoryPfd?.close() }
+        inputStream = null
+        outputStream = null
+        accessoryPfd = null
+        accessoryFd = null
     }
 
     override fun disconnect(): Boolean {
@@ -215,21 +266,10 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
     }
 
     override fun shutdown() {
-        try {
-            inputStream?.close()
-            inputStream = null
-
-            outputStream?.close()
-            outputStream = null
-
-            accessoryPfd?.close()
-            accessoryPfd = null
-
-            accessoryFd = null
-        } catch (e: Exception) {
-            Log.e(TAG, "shutdown: ${e.message}")
-        }
-
+        connected = false
+        reconnectJob?.cancel()
+        closeAccessory()
+        runCatching { appContext.unregisterReceiver(receiver) }
         disconnect()
     }
 
@@ -238,7 +278,7 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
 
         streamJob = scope.launch {
             audioStream.collect { data ->
-                if (accessory == null || outputStream == null) return@collect
+                if (!connected || accessory == null || outputStream == null) return@collect
 
                 try {
                     val message = Messages.MessageWrapper.newBuilder()
@@ -276,7 +316,7 @@ class UsbStreamer(ctx: Context, private val scope: CoroutineScope) : Streamer {
     }
 
     override fun isAlive(): Boolean {
-        return true
+        return connected
     }
 
 

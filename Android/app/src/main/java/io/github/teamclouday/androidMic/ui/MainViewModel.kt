@@ -17,6 +17,7 @@ import io.github.teamclouday.androidMic.AudioSource
 import io.github.teamclouday.androidMic.ChannelCount
 import io.github.teamclouday.androidMic.Dialogs
 import io.github.teamclouday.androidMic.Mode
+import io.github.teamclouday.androidMic.ProcessingMode
 import io.github.teamclouday.androidMic.R
 import io.github.teamclouday.androidMic.SampleRates
 import io.github.teamclouday.androidMic.Themes
@@ -186,6 +187,12 @@ class MainViewModel : ViewModel() {
     fun setAudioSource(audioSource: AudioSource) {
         viewModelScope.launch {
             prefs.audioSource.update(audioSource)
+        }
+    }
+
+    fun setProcessingMode(mode: ProcessingMode) {
+        viewModelScope.launch {
+            prefs.processingMode.update(mode)
         }
     }
 

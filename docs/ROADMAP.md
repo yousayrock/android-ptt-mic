@@ -8,17 +8,18 @@
 
 ## Phase 1 — X19 Pro input probe
 
-- [ ] Add diagnostic KeyEvent capture and exportable logs.
+- [x] Add diagnostic KeyEvent capture and local logs.
+- [x] Add user-enabled AccessibilityService capture for XS17's volume-up key while streaming.
 - [ ] Test display on/off, lock screen, background, and foreground service cases.
-- [ ] Record the confirmed key source and key code in a device profile.
+- [x] Record the confirmed kernel event source and key code in a device profile.
 
 ## Phase 2 — V1 PTT service
 
-- [ ] Add Android Foreground Service microphone capture.
-- [ ] Implement hard PTT gate, short press vibration, and immediate release mute.
-- [ ] Enforce 48 kHz / 16-bit / mono and USB preference.
-- [ ] Add disconnect handling and automatic reconnect.
-- [ ] Add OFF / STANDARD / CAR processing modes.
+- [x] Reuse AndroidMic Foreground Service microphone capture; add PTT lifecycle integration.
+- [x] Implement hard PTT gate, short press vibration, and immediate release mute.
+- [x] Set fresh installs to 48 kHz / 16-bit / mono and USB preference.
+- [x] Add USB detach/attach detection and handshake retry.
+- [x] Add OFF / STANDARD / CAR processing modes.
 
 ## Phase 3 — vehicle validation
 

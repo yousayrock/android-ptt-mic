@@ -7,10 +7,10 @@
 ## Components
 
 ```text
-Side button KeyEvent
+XS17 side button (KEY_VOLUMEUP)
         |
         v
-PTT input adapter ---> PTT state machine ---> Audio gate (hard mute)
+Accessibility key filter -> PTT state machine ---> Audio gate (hard mute)
         |                       |                     |
         |                       +--> short vibration |
         v                                             v
@@ -20,7 +20,7 @@ Foreground microphone service -> processing chain -> AndroidMic USB transport
                                          AndroidMic PC receiver / virtual mic
 ```
 
-- **PTT input adapter**: first measures the device-specific key code and repeat/cancel behavior. It must continue working with the display off.
+- **PTT input adapter**: an explicitly enabled AccessibilityService captures volume-up only during an active stream; otherwise the key continues controlling system volume. XS17 screen-off operation still needs device validation.
 - **PTT state machine**: transitions are `IDLE`, `PRESSED`, `RECONNECTING`, and `ERROR`. `ACTION_UP`, focus loss, service stop, USB loss, and watchdog timeout all force `IDLE`.
 - **Audio gate**: closed means zeroed PCM frames; it must not rely only on UI state. Open/close timestamps are logged for latency measurement.
 - **Foreground service**: owns microphone capture, processing, USB connection, reconnect backoff, and notification lifecycle.

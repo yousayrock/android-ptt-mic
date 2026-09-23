@@ -23,7 +23,7 @@ object DefaultStates {
 class AppPreferences(
     context: Context
 ) : PreferencesManager(context, "settings") {
-    val mode = enumPreference("mode", Mode.WIFI)
+    val mode = enumPreference("mode", Mode.USB)
 
     val ip = stringPreference("ip", "192.168.")
     val port = stringPreference("port", "")
@@ -32,10 +32,11 @@ class AppPreferences(
     val theme = enumPreference("theme", Themes.System)
     val dynamicColor = booleanPreference("dynamicColor", true)
 
-    val sampleRate = enumPreference("sampleRate", SampleRates.S44100)
+    val sampleRate = enumPreference("sampleRate", SampleRates.S48000)
     val channelCount = enumPreference("channelCount", Mono)
     val audioFormat = enumPreference("audioFormat", AudioFormat.I16)
     val audioSource = enumPreference("audioSource", AudioSource.Mic)
+    val processingMode = enumPreference("processingMode", ProcessingMode.OFF)
 
 }
 
@@ -62,6 +63,10 @@ enum class AudioSource {
 
 enum class Mode {
     WIFI, UDP, USB, ADB
+}
+
+enum class ProcessingMode {
+    OFF, STANDARD, CAR
 }
 
 enum class Themes {

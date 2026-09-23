@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name" translatable="false">AndroidMic</string>
+    <string name="ptt_accessibility_label">PTT side button input</string>
+    <string name="ptt_accessibility_description">While Android PTT Mic is streaming, use the volume up side button as push-to-talk. Other keys are not intercepted.</string>
 
     <!--
     Main UI
@@ -28,6 +30,7 @@
     <string name="channel_count">Channel Count</string>
     <string name="audio_format">Audio Format</string>
     <string name="audio_source">Audio Source</string>
+    <string name="processing_mode">Noise processing</string>
 
     <string name="drawerTheme">Themes</string>
     <string name="dynamic_color">Dynamic color</string>

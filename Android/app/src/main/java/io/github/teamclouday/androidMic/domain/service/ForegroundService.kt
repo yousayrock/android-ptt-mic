@@ -12,8 +12,14 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.Process
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
+import android.view.KeyEvent
 import android.util.Log
 import io.github.teamclouday.androidMic.Mode
+import io.github.teamclouday.androidMic.AndroidMicApp
 import io.github.teamclouday.androidMic.R
 import io.github.teamclouday.androidMic.domain.audio.MicAudioManager
 import io.github.teamclouday.androidMic.domain.streaming.MicStreamManager
@@ -40,6 +46,9 @@ const val BIND_SERVICE_ACTION = "BIND_SERVICE_ACTION"
 const val STOP_STREAM_ACTION = "STOP_STREAM_ACTION"
 const val MUTE_ACTION = "MUTE_ACTION"
 const val UNMUTE_ACTION = "UNMUTE_ACTION"
+const val PTT_PRESS_ACTION = "PTT_PRESS_ACTION"
+const val PTT_RELEASE_ACTION = "PTT_RELEASE_ACTION"
+private const val MEDIA_SESSION_TAG = "AndroidPttMic"
 
 class ForegroundService : Service() {
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -95,6 +104,7 @@ class ForegroundService : Service() {
 
     private val states = ServiceStates()
     private lateinit var messageui: MessageUi
+    private var mediaSession: MediaSession? = null
 
     // This field is true if the UI is running
     private var isBind = false
@@ -122,6 +132,38 @@ class ForegroundService : Service() {
             notificationManager.createNotificationChannel(channel)
         }
         messageui = MessageUi(this)
+
+        // Side buttons mapped by Android to media keys can reach this active session
+        // while the Activity is hidden or the screen is off.
+        mediaSession = MediaSession(this, MEDIA_SESSION_TAG).apply {
+            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+            setCallback(object : MediaSession.Callback() {
+                override fun onMediaButtonEvent(mediaButtonIntent: Intent): Boolean {
+                    val event = mediaButtonIntent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                        ?: return false
+                    Log.i(TAG, "media key code=${event.keyCode} action=${event.action} repeat=${event.repeatCount} device=${event.deviceId}")
+                    val supportedPttKey = event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                        event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
+                        event.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE ||
+                        event.keyCode == KeyEvent.KEYCODE_HEADSETHOOK
+                    if (!supportedPttKey) return false
+
+                    if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                        serviceHandler.post { setPttPressed(true) }
+                    } else if (event.action == KeyEvent.ACTION_UP) {
+                        serviceHandler.post { setPttPressed(false) }
+                    }
+                    return true
+                }
+            }, Handler(serviceLooper))
+            isActive = true
+            setPlaybackState(
+                PlaybackState.Builder()
+                    .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE)
+                    .setState(PlaybackState.STATE_PAUSED, 0, 0f)
+                    .build()
+            )
+        }
     }
 
     // note that onBind is only called on the first call of bind()
@@ -162,6 +204,9 @@ class ForegroundService : Service() {
                 reply(uiMessenger, ResponseData(isMuted = false))
             }
 
+            PTT_PRESS_ACTION -> serviceHandler.post { setPttPressed(true) }
+            PTT_RELEASE_ACTION -> serviceHandler.post { setPttPressed(false) }
+
             else -> {
                 Log.w(TAG, "unknown action for onStartCommand")
             }
@@ -192,6 +237,8 @@ class ForegroundService : Service() {
         super.onDestroy()
         Log.d(TAG, "onDestroy")
         stopService()
+        mediaSession?.release()
+        mediaSession = null
     }
 
     private fun stopService() {
@@ -209,6 +256,43 @@ class ForegroundService : Service() {
         stopSelf()
     }
 
+    private fun setPttPressed(pressed: Boolean) {
+        if (!states.isStreamStarted || !states.isAudioStarted) return
+        if (states.isMuted == !pressed) return
+
+        states.isMuted = !pressed
+        if (pressed) {
+            managerAudio?.unmute()
+            vibrateForPttStart()
+            mediaSession?.setPlaybackState(
+                PlaybackState.Builder()
+                    .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE)
+                    .setState(PlaybackState.STATE_PLAYING, 0, 0f)
+                    .build()
+            )
+        } else {
+            managerAudio?.mute()
+            mediaSession?.setPlaybackState(
+                PlaybackState.Builder()
+                    .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE)
+                    .setState(PlaybackState.STATE_PAUSED, 0, 0f)
+                    .build()
+            )
+        }
+        updateNotification()
+    }
+
+    private fun vibrateForPttStart() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java).defaultVibrator.vibrate(
+                android.os.VibrationEffect.createOneShot(35, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            (getSystemService(VIBRATOR_SERVICE) as Vibrator).vibrate(35)
+        }
+    }
+
 
     private fun showMessage(msg: String) {
         if (!isBind) {
@@ -218,7 +302,8 @@ class ForegroundService : Service() {
 
     // start streaming
     private fun startStream(msg: CommandData, replyTo: Messenger) {
-        states.isMuted = false
+        states.isMuted = true
+        PttAccessibilityBridge.isStreamActive = false
         // check connection state
         if (states.isStreamStarted) {
             reply(
@@ -238,7 +323,19 @@ class ForegroundService : Service() {
 
         try {
             managerStream =
-                MicStreamManager(applicationContext, scope, msg.mode!!, msg.ip, msg.port)
+                MicStreamManager(
+                    applicationContext,
+                    scope,
+                    msg.mode!!,
+                    msg.ip,
+                    msg.port,
+                    onConnectionChanged = { connected ->
+                        serviceHandler.post {
+                            if (!connected) setPttPressed(false)
+                            if (states.isStreamStarted) updateNotification()
+                        }
+                    }
+                )
         } catch (e: IllegalArgumentException) {
             Log.d(TAG, "start stream with mode ${msg.mode!!.name} failed:\n${e.message}")
 
@@ -281,6 +378,7 @@ class ForegroundService : Service() {
         )
 
         states.isStreamStarted = true
+        PttAccessibilityBridge.isStreamActive = true
         Log.d(TAG, "startStream [connected]")
 
         reply(
@@ -317,6 +415,8 @@ class ForegroundService : Service() {
     }
 
     private fun shutdownStream() {
+        PttAccessibilityBridge.isStreamActive = false
+        setPttPressed(false)
         managerStream?.shutdown()
         managerStream = null
         states.isStreamStarted = false
@@ -343,6 +443,7 @@ class ForegroundService : Service() {
                 audioFormat = msg.audioFormat!!.value,
                 channelCount = msg.channelCount!!.value,
                 audioSource = msg.audioSource!!,
+                processingMode = AndroidMicApp.appModule.appPreferences.processingMode.getBlocking(),
             )
         } catch (e: IllegalArgumentException) {
             reply(replyTo, ResponseData(msg = application.getString(R.string.error) + e.message))
@@ -350,6 +451,7 @@ class ForegroundService : Service() {
         }
 
         managerAudio?.start()
+        managerAudio?.mute()
 
         // we need to start in foreground to use the mic
         // but no need to specify a flag because we declared
@@ -385,6 +487,12 @@ class ForegroundService : Service() {
     private fun getStatus(replyTo: Messenger) {
         Log.d(TAG, "getStatus")
 
-        reply(replyTo, ResponseData(isConnected = states.isStreamStarted, isMuted = states.isMuted))
+        reply(
+            replyTo,
+            ResponseData(
+                isConnected = states.isStreamStarted && managerStream?.isConnected() == true,
+                isMuted = states.isMuted
+            )
+        )
     }
 }
