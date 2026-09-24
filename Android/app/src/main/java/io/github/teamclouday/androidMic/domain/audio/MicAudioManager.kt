@@ -177,7 +177,7 @@ class MicAudioManager(
                     }
                 } else if (releaseTailRemaining > 0 && audioFormat == AudioFormat.ENCODING_PCM_16BIT) {
                     if (processingMode != ProcessingMode.OFF) processPcm16(packetBuffer)
-                    val fade = releaseTailRemaining.toFloat() / RELEASE_TAIL_FRAMES
+                    val fade = (releaseTailRemaining - 1).toFloat() / (RELEASE_TAIL_FRAMES - 1).coerceAtLeast(1)
                     applyPcm16Gain(packetBuffer, fade)
                     releaseTailRemaining--
                 } else if (releaseCueEnabled && cueSampleOffset < cueSamples && audioFormat == AudioFormat.ENCODING_PCM_16BIT) {
