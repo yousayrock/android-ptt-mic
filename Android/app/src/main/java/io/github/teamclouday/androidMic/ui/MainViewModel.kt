@@ -153,6 +153,12 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun setReleaseCueEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefs.releaseCueEnabled.update(enabled)
+        }
+    }
+
 
     fun setTheme(theme: Themes) {
         viewModelScope.launch {
