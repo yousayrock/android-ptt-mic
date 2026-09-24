@@ -31,6 +31,7 @@ class AppPreferences(
     val dynamicColor = booleanPreference("dynamicColor", true)
 
     val processingMode = enumPreference("processingMode", ProcessingMode.OFF)
+    val releaseCueEnabled = booleanPreference("releaseCueEnabled", true)
 
 }
 
@@ -39,7 +40,7 @@ enum class Mode {
 }
 
 enum class ProcessingMode {
-    OFF, STANDARD, CAR
+    OFF, STANDARD, CAR, BROADCAST
 }
 
 enum class Themes {
