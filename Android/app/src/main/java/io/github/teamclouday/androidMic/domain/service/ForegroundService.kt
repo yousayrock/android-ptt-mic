@@ -418,6 +418,7 @@ class ForegroundService : Service() {
                 channelCount = msg.channelCount!!.value,
                 audioSource = msg.audioSource!!,
                 processingMode = AndroidMicApp.appModule.appPreferences.processingMode.getBlocking(),
+                releaseCueEnabled = AndroidMicApp.appModule.appPreferences.releaseCueEnabled.getBlocking(),
             )
         } catch (e: IllegalArgumentException) {
             reply(replyTo, ResponseData(msg = application.getString(R.string.error) + e.message))
