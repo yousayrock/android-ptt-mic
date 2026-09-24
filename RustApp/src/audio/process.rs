@@ -188,6 +188,16 @@ impl AudioStream {
             }
         }
 
+        // This is the live output path too: process_audio_packet writes these samples
+        // into AudioStream.buff, which the CPAL callback feeds to the selected device.
+        // Keep optional gain/effects from wrapping or clipping the virtual microphone.
+        const PEAK_CEILING: f32 = 0.98;
+        for channel in &mut buffer {
+            for sample in channel {
+                *sample = sample.clamp(-PEAK_CEILING, PEAK_CEILING);
+            }
+        }
+
         // finally convert to output format
         let num_channels = config.target_format.channel_count.to_number() as usize;
         let total_bytes: usize = buffer[0].len() * num_channels * std::mem::size_of::<F>();
