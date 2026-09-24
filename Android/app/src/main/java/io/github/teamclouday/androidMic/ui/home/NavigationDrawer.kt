@@ -117,6 +117,14 @@ fun DrawerBody(vm: MainViewModel) {
             onClick = { dialogProcessingModeExpanded.value = true },
         )
 
+        val releaseCueEnabled = vm.prefs.releaseCueEnabled.getAsState().value
+        SettingsItem(
+            title = "PTT release cue",
+            subTitle = if (releaseCueEnabled) "Enabled" else "Disabled",
+            contentDescription = "toggle the short two-tone PTT release cue",
+            onClick = { vm.setReleaseCueEnabled(!releaseCueEnabled) },
+        )
+
         // Other
         SettingsItemsSubtitle(R.string.drawer_subtitle_other)
 
